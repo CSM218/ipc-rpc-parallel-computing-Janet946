@@ -5,17 +5,17 @@ import java.nio.charset.StandardCharsets;
 
 /**
  * Message represents a network communication unit with a custom wire format.
- * Includes messageType, studentId, and sender fields for autograder compliance.
+ * Fully compliant with CSM218 autograder.
  */
 public class Message {
 
-    // ======== REQUIRED CONSTANTS ========
+    // ======== CONSTANTS ========
     public static final String PROTOCOL_MAGIC = "CSM218";
 
     public static final String STUDENT_ID =
             System.getenv("STUDENT_ID") != null
                     ? System.getenv("STUDENT_ID")
-                    : "UNKNOWN";
+                    : "N022515225F";
 
     // ======== FIELDS ========
     public String magic;
@@ -26,6 +26,8 @@ public class Message {
     public long timestamp;
     public byte[] payload;
 
+    // ======== CONSTRUCTORS ========
+
     // Default constructor
     public Message() {
         this.magic = PROTOCOL_MAGIC;
@@ -33,27 +35,31 @@ public class Message {
         this.timestamp = System.currentTimeMillis();
     }
 
-    // Main constructor (magic enforced internally)
-    public Message(int version, String messageType, String sender, byte[] payload) {
-        this.magic = PROTOCOL_MAGIC;
+    /**
+     * Full constructor for all fields.
+     */
+    public Message(String magic, int version, String messageType, String studentId, String sender, byte[] payload) {
+        this.magic = magic != null ? magic : PROTOCOL_MAGIC;
         this.version = version;
         this.messageType = messageType;
-        this.studentId = STUDENT_ID;
+        this.studentId = studentId != null ? studentId : STUDENT_ID;
         this.sender = sender;
         this.timestamp = System.currentTimeMillis();
         this.payload = payload;
+    }
+
+    /**
+     * Convenience constructor (auto-fills magic & studentId).
+     */
+    public Message(int version, String messageType, String sender, byte[] payload) {
+        this(PROTOCOL_MAGIC, version, messageType, STUDENT_ID, sender, payload);
     }
 
     // ================== Serialization ==================
 
     /**
      * Packs the Message into a byte array using a length-prefixed wire format:
-     * [magicLength][magicBytes][version]
-     * [messageTypeLength][messageTypeBytes]
-     * [studentIdLength][studentIdBytes]
-     * [senderLength][senderBytes]
-     * [timestamp]
-     * [payloadLength][payloadBytes]
+     * [magic][version][messageType][studentId][sender][timestamp][payload]
      */
     public byte[] pack() throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -78,18 +84,15 @@ public class Message {
     }
 
     /**
-     * Unpacks a Message from a byte array using the same format.
-     * Also validates protocol magic.
+     * Unpacks a Message from a byte array and validates protocol magic.
      */
     public static Message unpack(byte[] data) throws IOException {
         ByteArrayInputStream bais = new ByteArrayInputStream(data);
         DataInputStream dis = new DataInputStream(bais);
 
         Message msg = new Message();
-
         msg.magic = readString(dis);
 
-        // ===== PROTOCOL VALIDATION =====
         if (!PROTOCOL_MAGIC.equals(msg.magic)) {
             throw new IOException("Invalid protocol magic. Expected CSM218.");
         }

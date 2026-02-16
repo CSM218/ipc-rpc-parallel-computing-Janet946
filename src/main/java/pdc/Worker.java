@@ -24,28 +24,31 @@ public class Worker {
         this.capabilities = capabilities;
     }
 
-   public void joinCluster(String masterHost, int port) throws IOException {
-    masterSocket = new Socket(masterHost, port);
-    out = new DataOutputStream(masterSocket.getOutputStream());
-    in = new DataInputStream(masterSocket.getInputStream());
+    public void joinCluster(String masterHost, int port) throws IOException {
+        masterSocket = new Socket(masterHost, port);
+        out = new DataOutputStream(masterSocket.getOutputStream());
+        in = new DataInputStream(masterSocket.getInputStream());
 
-    // Send registration message
-    String studentId = identity; // or fetch from environment
-Message registration = new Message(
-        1,
-        "REGISTER",
-        identity,
-        new byte[0]
-);
+        // Use environment variable for student ID
+        String studentId = System.getenv("STUDENT_ID");
+        if (studentId == null) studentId = identity; // fallback
 
+        // Send registration message using the 6-field Message constructor
+        Message registration = new Message(
+                "MAGIC",      // magic
+                1,            // version
+                "REGISTER",   // messageType
+                studentId,    // studentId from env
+                identity,     // sender
+                new byte[0]   // payload empty
+        );
 
-    sendMessage(registration);
+        sendMessage(registration);
 
-    // Wait for acknowledgment
-    Message ack = receiveMessage();
-    System.out.println("Master response: " + ack.messageType);
-}
-
+        // Wait for acknowledgment
+        Message ack = receiveMessage();
+        System.out.println("Master response: " + ack.messageType);
+    }
 
     public void scheduleTask(Runnable task) {
         executor.submit(() -> {
@@ -60,15 +63,13 @@ Message registration = new Message(
     }
 
     public void shutdown() {
-    executor.shutdownNow();
-
-    try {
-        if (masterSocket != null && !masterSocket.isClosed()) {
-            masterSocket.close();
-        }
-    } catch (IOException ignored) {}
-}
-
+        executor.shutdownNow();
+        try {
+            if (masterSocket != null && !masterSocket.isClosed()) {
+                masterSocket.close();
+            }
+        } catch (IOException ignored) {}
+    }
 
     // ------------------- MESSAGE HELPERS -------------------
 

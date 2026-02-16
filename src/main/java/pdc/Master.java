@@ -64,13 +64,16 @@ public class Master {
                         switch (msg.messageType.toUpperCase()) {
                             case "REGISTER":
                                 System.out.println("Worker registered: " + worker.id);
-                               worker.sendMessage(new Message(
-        1,
-        "ACK",
-        "MASTER",
-        new byte[0]
-));
 
+                                // Send ACK
+                                worker.sendMessage(new Message(
+                                        "MAGIC",
+                                        1,
+                                        "ACK",
+                                        System.getenv("STUDENT_ID"),
+                                        "MASTER",
+                                        new byte[0]
+                                ));
                                 break;
 
                             case "RESULT":
@@ -228,27 +231,26 @@ public class Master {
         }
 
         byte[] sendTask(Task task) throws IOException {
-    // Wrap task in a Message
-    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    DataOutputStream dos = new DataOutputStream(baos);
-    dos.writeInt(task.id);
-    for (int v : task.rowData) dos.writeInt(v);
-    dos.flush();
-    byte[] payload = baos.toByteArray();
+            // Wrap task in a Message using 6-field constructor
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            DataOutputStream dos = new DataOutputStream(baos);
+            dos.writeInt(task.id);
+            for (int v : task.rowData) dos.writeInt(v);
+            dos.flush();
+            byte[] payload = baos.toByteArray();
 
-    // Correct constructor call
-   sendMessage(new Message(
-        1,
-        "TASK",
-        "MASTER",
-        payload
-));
+            sendMessage(new Message(
+                    "MAGIC",
+                    1,
+                    "TASK",
+                    System.getenv("STUDENT_ID"),
+                    "MASTER",
+                    payload
+            ));
 
-
-    // Wait for result
-    Message response = receiveMessage();
-    return response.payload;
-}
-
+            // Wait for result
+            Message response = receiveMessage();
+            return response.payload;
+        }
     }
 }
