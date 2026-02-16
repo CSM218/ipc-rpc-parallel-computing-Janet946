@@ -1,32 +1,89 @@
 package pdc;
 
+import java.io.*;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.*;
 
 /**
- * A Worker is a node in the cluster capable of high-concurrency computation.
- * 
- * CHALLENGE: Efficiency is key. The worker must minimize latency by
- * managing its own internal thread pool and memory buffers.
+ * Worker node capable of high-concurrency computation in a cluster.
+ * Communicates with Master using Message protocol.
  */
 public class Worker {
 
-    /**
-     * Connects to the Master and initiates the registration handshake.
-     * The handshake must exchange 'Identity' and 'Capability' sets.
-     */
-    public void joinCluster(String masterHost, int port) {
-        // TODO: Implement the cluster join protocol
+    private final ExecutorService executor;
+    private Socket masterSocket;
+    private DataOutputStream out;
+    private DataInputStream in;
+    private final String identity;
+    private final String capabilities;
+
+    public Worker(int threads, String identity, String capabilities) {
+        this.executor = Executors.newFixedThreadPool(threads);
+        this.identity = identity;
+        this.capabilities = capabilities;
     }
 
-    /**
-     * Executes a received task block.
-     * 
-     * Students must ensure:
-     * 1. The operation is atomic from the perspective of the Master.
-     * 2. Overlapping tasks do not cause race conditions.
-     * 3. 'End-to-End' logs are precise for performance instrumentation.
-     */
-    public void execute() {
-        // TODO: Implement internal task scheduling
+    public void joinCluster(String masterHost, int port) throws IOException {
+        masterSocket = new Socket(masterHost, port);
+        out = new DataOutputStream(masterSocket.getOutputStream());
+        in = new DataInputStream(masterSocket.getInputStream());
+
+        // Use environment variable for student ID
+        String studentId = System.getenv("STUDENT_ID");
+        if (studentId == null) studentId = identity; // fallback
+
+        // Send registration message using the 6-field Message constructor
+        Message registration = new Message(
+                "MAGIC",      // magic
+                1,            // version
+                "REGISTER",   // messageType
+                studentId,    // studentId from env
+                identity,     // sender
+                new byte[0]   // payload empty
+        );
+
+        sendMessage(registration);
+
+        // Wait for acknowledgment
+        Message ack = receiveMessage();
+        System.out.println("Master response: " + ack.messageType);
+    }
+
+    public void scheduleTask(Runnable task) {
+        executor.submit(() -> {
+            long start = System.currentTimeMillis();
+            try {
+                task.run();
+            } finally {
+                long end = System.currentTimeMillis();
+                System.out.println("Task completed in " + (end - start) + "ms by " + identity);
+            }
+        });
+    }
+
+    public void shutdown() {
+        executor.shutdownNow();
+        try {
+            if (masterSocket != null && !masterSocket.isClosed()) {
+                masterSocket.close();
+            }
+        } catch (IOException ignored) {}
+    }
+
+    // ------------------- MESSAGE HELPERS -------------------
+
+    private void sendMessage(Message msg) throws IOException {
+        byte[] data = msg.pack();
+        out.writeInt(data.length);
+        out.write(data);
+        out.flush();
+    }
+
+    private Message receiveMessage() throws IOException {
+        int length = in.readInt();
+        byte[] data = new byte[length];
+        in.readFully(data);
+        return Message.unpack(data);
     }
 }
