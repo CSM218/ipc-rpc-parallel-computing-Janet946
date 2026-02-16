@@ -31,9 +31,14 @@ public class Worker {
 
     // Send registration message
     String studentId = identity; // or fetch from environment
-   Message registration = new Message(
-    "MAGIC", 1, "REGISTER", identity, identity, identity.getBytes(StandardCharsets.UTF_8)
+Message registration = new Message(
+        1,
+        "REGISTER",
+        identity,
+        new byte[0]
 );
+
+
     sendMessage(registration);
 
     // Wait for acknowledgment
