@@ -60,18 +60,15 @@ Message registration = new Message(
     }
 
     public void shutdown() {
-        executor.shutdown();
-        try {
-            if (!executor.awaitTermination(5, TimeUnit.SECONDS)) executor.shutdownNow();
-        } catch (InterruptedException e) {
-            executor.shutdownNow();
-            Thread.currentThread().interrupt();
-        }
+    executor.shutdownNow();
 
-        try {
-            if (masterSocket != null && !masterSocket.isClosed()) masterSocket.close();
-        } catch (IOException ignored) {}
-    }
+    try {
+        if (masterSocket != null && !masterSocket.isClosed()) {
+            masterSocket.close();
+        }
+    } catch (IOException ignored) {}
+}
+
 
     // ------------------- MESSAGE HELPERS -------------------
 
